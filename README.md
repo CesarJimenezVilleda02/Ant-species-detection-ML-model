@@ -101,7 +101,7 @@ Acercar o alejar virtualmente el encuadre refuerza la capacidad del modelo de id
 ### Volteos horizontales y verticales
 Los volteos (horizontal_flip y vertical_flip) duplican el número de combinaciones espaciales. Resultan útiles porque la morfología de una hormiga suele ser simétrica y puede aparecer boca abajo, de costado o invertida si la foto se toma con el teléfono en otra orientación.
 
-### `fill_mode = "wrap"`
+### fill_mode = "wrap"
 Cuando se rotan o desplazan las imágenes quedan espacios vacíos. El modo «wrap» recicla la propia imagen para rellenar esos huecos, evitando que aparezcan barras negras o zonas con un color sólido que el modelo podría aprender. Además en el dataset hay varios ejemplos de cómo se ven los nidos de estas hormigas, por lo que este relleno de bordes simula cómo se vería una toma alejada de un nido o grupo de hormigas.
 
 ### Brillo aleatorio (0.8 – 1.2 ×)
