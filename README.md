@@ -141,22 +141,87 @@ La red se inspira en el artículo de Silva-Filho et al. Frontiers in Ecology[1] 
 - Una capa densa intermedia de 256 unidades con ReLU para combinar las características extraídas.
 - Capa de salida con softmax que entrega las probabilidades de pertenencia a siete clases.
 
+### Selección de métricas
+
+Para evaluar el rendimiento se eligieron:
+
+- Accuracy: ofrece una visión general de aciertos sobre el total de predicciones.
+- Precisión: importante para minimizar falsos positivos; evita alarmas por especies no problemáticas.
+- Recall: crucial para reducir falsos negativos y no pasar por alto especies invasoras.
+- F1-score (macro): combina las dos anteriores, equilibrando sus ventajas en presencia de clases desbalanceadas.
+
+Estas métricas están respaldadas por Silva-Filho et al. (2022), quienes recomiendan F1-score macro para no enmascarar el desempeño en clases minoritarias; y por Zhao et al. (2025) y Stark et al. (2023), que destacan la relevancia de precision y recall en tareas de detección de plagas.
+
+### Compilación del modelo
+
+Antes de comenzar el aprendizaje, se configuraron tres elementos:
+
+- **Optimizador (Adam)**  
+Este algoritmo ajusta los pesos de la red adaptando la magnitud de la actualización a la historia de los gradientes. Gracias a sus momentos de primer y segundo orden, Adam converge con estabilidad incluso en problemas complejos.
+
+- **Función de pérdida (categorical_crossentropy)**  
+Mide la discrepancia entre la distribución de probabilidad que el modelo predice y la distribución verdadera de cada clase. En cada paso de entrenamiento, minimizamos esta pérdida para que las predicciones se acerquen cada vez más a las etiquetas reales.
+
+- **Métrica de evaluación (accuracy)**  
+Indica el porcentaje de imágenes clasificadas correctamente. Es una señal rápida de progreso, pero no distingue entre falsos positivos y falsos negativos.
+
 ### Entrenamiento del modelo
 
-El modelo se entrenó con lotes de 16 imágenes, cada una de 224×224×3. Se utilizó el optimizador Adam con una tasa de aprendizaje inicial de 1e-4 y un total de 60 épocas. Para compensar el desbalance en el número de imágenes por clase, se aplicaron pesos inversamente proporcionales al soporte de cada especie mediante `class_weight`, de forma que las clases con menos muestras (por ejemplo trap-jaw-ants) no fueran ignoradas durante la actualización de pesos.
+El entrenamiento de configuró de la siguiente manera:
+
+- **Batch size de 16**  
+Cada actualización se basa en un lote de 16 imágenes. Un tamaño así introduce suficiente variabilidad y mantiene un uso moderado de memoria GPU. Si el batch fuera mucho mayor, las actualizaciones serían más estables pero consumirían mucha más memoria.
+
+- **60 épocas**  
+En cada época, la red recorre todas las muestras de entrenamiento en lotes de 16. Con 60 pasadas completas, hay oportunidad de ajustar los pesos con detalle. Pocas épocas pueden dejar el modelo subajustado, mientras que demasiadas sin control pueden llevar a sobreajuste.
+
+- **100 pasos por época**  
+Cada paso procesa un lote de 16 imágenes. Con 100 pasos, el modelo ve 1 600 imágenes antes de pasar a la validación. Aumentar este número expondría más datos por época pero haría cada ciclo más largo; reducirlo aceleraría cada época pero podría invalidar la evaluación al ver menos muestras.
+
+- **Validación en 25 pasos**  
+Tras cada época, se evalua el rendimiento en 25 lotes del conjunto de validación. Esto provee una medida confiable de generalización sin retrasar el entrenamiento.
+
+- **Pesos de clase**  
+Se asigna un peso mayor a las clases con menos muestras, de modo que sus errores penalicen más la pérdida total. Así se evita que especies poco representadas queden “silenciadas” durante el aprendizaje.
 
 ### Análisis de resultados
 
-Tras el entrenamiento y validación, las métricas finales en el conjunto de prueba fueron:
+Al finalizar el entrenamiento y la validación, se obtuvieron las siguientes métricas:
 
-```
-Train   - acc: …  | loss: …
-Val     - acc: …  | loss: …
-Test    - acc: …  | loss: …
-Macro-F1 (test): …
-```
+- Entrenamiento (última época):  
+  • Pérdida: 0.4523  
+  • Accuracy: 0.8338
 
-Se generaron gráficas de evolución de accuracy y loss a lo largo de las épocas (accuracyGraph.png, lossGraph.png).
+- Validación (última época):  
+  • Pérdida: 1.3484  
+  • Accuracy: 0.6500
+
+- Prueba (test):  
+  • Pérdida: 0.5001  
+  • Accuracy: 0.8477
+
+### Analisis del entrenamiento
+
+#### Conceptos clave
+
+- **Underfitting**  
+Ocurre cuando el modelo es demasiado simple o no ha entrenado lo suficiente; ni siquiera aprende bien los patrones del conjunto de entrenamiento (baja precisión y alta pérdida en train).
+
+- **Overfitting**  
+Sucede cuando el modelo memoriza excesivamente el conjunto de entrenamiento, obteniendo muy buena precisión en train pero un desempeño pobre en validación (gran brecha entre train y val).
+
+#### Graficas del proceso de entrenamiento
+Se generaron gráficas de evolución de accuracy y loss a lo largo de las épocas:
+![image](https://github.com/user-attachments/assets/93a86f12-37fa-438c-9e3e-3dc53d313565)
+
+![image](https://github.com/user-attachments/assets/09c17325-bfe4-4ce1-973f-45413780c129)
+
+#### Análisis de las curvas de entrenamiento
+
+- La precisión de entrenamiento (azul) y de prueba (verde) crecen de forma pareja hasta rondar 0.85, lo que indica que el modelo ajusta bien esos datos.  
+- La precisión de validación (naranja) se muestra muy errática, con subidas y bajadas bruscas. Esto se debe a que solo se evalúa una porción del set de validación en cada época, no la totalidad, por lo que las métricas varían según qué lotes toquen en ese paso.
+- La precisión de prueba supera ligeramente a la de entrenamiento en algunos tramos. Este patrón sugiere un leve underfitting respecto al test completo, quizá porque la arquitectura es todavía demasiado simple para capturar todas las variaciones.  
+- En cuanto a la pérdida, tanto entrenamiento como prueba descienden de forma suave.
 
 ### Reporte de clasificación
 
@@ -173,25 +238,54 @@ Se generaron gráficas de evolución de accuracy y loss a lo largo de las época
 | Macro avg           | 0.85      | 0.85   | 0.85     | 1274    |
 | Weighted avg        | 0.85      | 0.85   | 0.85     | 1274    |
 
-### Matriz de confusión
+- **argentine-ants**: Con una precisión del 91% y un recall del 86%, el modelo identifica con confianza a esta especie y recupera la mayoría de sus ejemplares, logrando un F1 de 0.89.
 
+- **black-crazy-ants**: El balance es excelente (precisión 86%, recall 91%), lo que indica muy pocos falsos positivos y negativos; el F1 de 0.88 confirma la fiabilidad en esta clase.
+
+- **fire-ants**: Con precisión del 79% y recall del 81%, muestra un ligero sesgo hacia falsos negativos (no siempre detecta cada muestra), pero mantiene un F1 aceptable de 0.80.
+
+- **leafcutter-ants**: Un recall alto (86%) contrasta con una precisión algo menor (80%). El modelo tiende a confundir otras especies como fire-ants con leafcutters, aunque la F1 de 0.83 sigue siendo buena.
+
+- **trap-jaw-ants**: Precisión y recall equilibrados (80% y 85%, respectivamente) y un F1 de 0.82 indican un desempeño constante, aunque queda margen para mejorar la detección de mandíbulas específicas.
+
+- **weaver-ants**: Destaca con un 92% de precisión y 85% de recall, logrando el F1 más alto (0.88). Sus características (color rojizo y forma alargada) pueden ser más fáciles de distinguir para el modelo.
+
+- **yellow-crazy-ants**: Muy buena precisión (90%), pero un recall más bajo (78%) sugiere que algunas muestras se pierden; aun así, un F1 de 0.84 demuestra un desempeño robusto.
+
+- **Accuracy global (85%)**: Se traduce en que 85% de todas las predicciones son correctas, lo cual es consistente con los F1 individuales.
+
+En conjunto, el modelo muestra equilibrio entre precisión y recall, con puntajes F1 por encima de 0.80 en todas las especies. Las mayores oportunidades de mejora se encuentran en fire-ants y leafcutter-ants, donde ajustes en data augmentation o arquitectura podrían reducir las confusiones actuales.  
+
+### Matriz de confusión
 ![image](https://github.com/user-attachments/assets/a724cf03-1187-4583-83ee-52fb21dfb773)
 
+Argentine-ants: 245 se clasificaron correctamente, pero 15 se confundieron con fire-ants y 18 con trap-jaw-ants. Esto sugiere similitudes visuales tal vez en tonos marrones—entre estas tres clases.
 
-### Selección de métricas
+Black-crazy-ants: 95 aciertos, con solo 3 falsos positivos hacia fire-ants y 2 hacia yellow-crazy-ants. Su baja tasa de error indica que sus características son muy distintivas.
 
-Para evaluar el rendimiento se eligieron:
+Fire-ants: 187 aciertos, pero 22 fueron etiquetados como leafcutter-ants y 7 como argentine-ants. Al compartir tonos rojizos y tamaños variables, la red a veces no discrimina correctamente entre estos grupos.
 
-- Accuracy: ofrece una visión general de aciertos sobre el total de predicciones.
-- Precisión: importante para minimizar falsos positivos; evita alarmas por especies no problemáticas.
-- Recall: crucial para reducir falsos negativos y no pasar por alto especies invasoras.
-- F1-score (macro): combina las dos anteriores, equilibrando sus ventajas en presencia de clases desbalanceadas.
+Leafcutter-ants: 223 bien clasificadas, con 13 confundidas con fire-ants y 7 con trap-jaw-ants. Dado que ambas tienen cabezas relativamente grandes y colores anaranjados/marrones, conviene reforzar diferenciadores morfológicos.
 
-Estas métricas están respaldadas por Silva-Filho et al. (2022), quienes recomiendan F1-score macro para no enmascarar el desempeño en clases minoritarias; y por Zhao et al. (2025) y Stark et al. (2023), que destacan la relevancia de precision y recall en tareas de detección de plagas.
+Trap-jaw-ants: 110 aciertos, 11 confundidas con leafcutter-ants y 4 con argentine-ants. A pesar de sus mandíbulas icónicas, el recorte en algunas imágenes puede ocultar ese rasgo clave.
+
+Weaver-ants: 129 predicciones correctas, 12 falsos hacia leafcutter-ants y 6 hacia fire-ants. Su color rojizo similar y fondos de hojas pueden inducir a error.
+
+Yellow-crazy-ants: 91 aciertos, aunque 10 fueron etiquetadas como fire-ants y 6 como argentine-ants. El amarillo pálido puede mezclarse con marrones claros en condiciones de iluminación variada.
+
+En conjunto, los mayores conflictos se dan entre especies de tonalidades cálidas
 
 ### Resultados con imagenes de prueba aleatorias
 ![image](https://github.com/user-attachments/assets/6e75a7a1-c0e1-4946-841b-a31312b96153)
 
+### Conclusiones de la primer versióm
+- El modelo alcanza una alta robustez (85 % de accuracy y F1-score macro de 0.85) gracias al uso de una arquitectura de cuatro bloques convolucionales y al empleo de Global Average Pooling, lo que le confiere buena capacidad de extracción de características sin un número excesivo de parámetros.
+
+- Las curvas de validación actuales, evaluadas solo sobre porciones del set en cada época, muestran alta variabilidad. Se debería medir la pérdida y la precisión sobre la totalidad del conjunto de validación en cada paso para obtener una señal de generalización más estable y evitar decisiones de hiperparámetros basadas en muestreos parciales.
+
+- El uso de class weights ha equilibrado eficazmente el aprendizaje entre especies con soporte muy desigual, pero aún se observan confusiones entre clases de tonalidades similares (fire-ants vs leafcutter-ants, trap-jaw-ants vs argentine-ants). Para reducir estos errores, voy a introducir aumentos adicionales de contraste que obliguen al modelo a centrarse en rasgos morfológicos (mandíbulas, forma de la cabeza) por encima del color.
+
+- El modelo podría mejorar arquitectónisamente mediante el uso de VGG16 como base convolucional. Gracias a su mayor profundidad y a sus filtros optimizados en ImageNet, VGG16 extrae representaciones más detalladas y complejas, lo que puede ayudar a reducir el underfitting al captar mejor las sutilezas morfológicas de cada especie.
 
 ## Bibliografía
 
