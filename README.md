@@ -127,4 +127,78 @@ Estas estrategias, combinadas, permiten que el clasificador reconozca hormigas e
 ![image](https://github.com/user-attachments/assets/0a5bdf56-0adc-426a-ae5f-b0a57745913f)
 
 
+## Construcción de la primera versión del modelo
+
+### Arquitectura y configuración
+
+La red se inspira en el artículo de Silva-Filho et al. Frontiers in Ecology[1] y presenta:
+![image](https://github.com/user-attachments/assets/6d022151-f09f-48c0-b474-8bdad93c1db5)
+
+- Una capa de entrada que recibe imágenes RGB de 224×224 píxeles.
+- Cuatro bloques convolucionales con filtros de 3×3 y función ReLU para detectar patrones locales.
+- Reducción espacial mediante operaciones de max pooling entre bloques, promoviendo invarianza a traslaciones y compresión de la información.
+- Global Average Pooling al final de los mapas de características, condensando cada filtro en un único valor medio y evitando la proliferación de parámetros.
+- Una capa densa intermedia de 256 unidades con ReLU para combinar las características extraídas.
+- Capa de salida con softmax que entrega las probabilidades de pertenencia a siete clases.
+
+### Entrenamiento del modelo
+
+El modelo se entrenó con lotes de 16 imágenes, cada una de 224×224×3. Se utilizó el optimizador Adam con una tasa de aprendizaje inicial de 1e-4 y un total de 60 épocas. Para compensar el desbalance en el número de imágenes por clase, se aplicaron pesos inversamente proporcionales al soporte de cada especie mediante `class_weight`, de forma que las clases con menos muestras (por ejemplo trap-jaw-ants) no fueran ignoradas durante la actualización de pesos.
+
+### Análisis de resultados
+
+Tras el entrenamiento y validación, las métricas finales en el conjunto de prueba fueron:
+
+```
+Train   - acc: …  | loss: …
+Val     - acc: …  | loss: …
+Test    - acc: …  | loss: …
+Macro-F1 (test): …
+```
+
+Se generaron gráficas de evolución de accuracy y loss a lo largo de las épocas (accuracyGraph.png, lossGraph.png).
+
+### Reporte de clasificación
+
+| Clase               | Precisión | Recall | F1-score | Soporte |
+|---------------------|-----------|--------|----------|---------|
+| argentine-ants      | 0.91      | 0.86   | 0.89     | 284     |
+| black-crazy-ants    | 0.86      | 0.91   | 0.88     | 104     |
+| fire-ants           | 0.79      | 0.81   | 0.80     | 230     |
+| leafcutter-ants     | 0.80      | 0.86   | 0.83     | 259     |
+| trap-jaw-ants       | 0.80      | 0.85   | 0.82     | 129     |
+| weaver-ants         | 0.92      | 0.85   | 0.88     | 152     |
+| yellow-crazy-ants   | 0.90      | 0.78   | 0.84     | 116     |
+| **Accuracy global** |           |        | **0.85** | 1274    |
+| Macro avg           | 0.85      | 0.85   | 0.85     | 1274    |
+| Weighted avg        | 0.85      | 0.85   | 0.85     | 1274    |
+
+### Matriz de confusión
+
+![image](https://github.com/user-attachments/assets/a724cf03-1187-4583-83ee-52fb21dfb773)
+
+
+### Selección de métricas
+
+Para evaluar el rendimiento se eligieron:
+
+- Accuracy: ofrece una visión general de aciertos sobre el total de predicciones.
+- Precisión: importante para minimizar falsos positivos; evita alarmas por especies no problemáticas.
+- Recall: crucial para reducir falsos negativos y no pasar por alto especies invasoras.
+- F1-score (macro): combina las dos anteriores, equilibrando sus ventajas en presencia de clases desbalanceadas.
+
+Estas métricas están respaldadas por Silva-Filho et al. (2022), quienes recomiendan F1-score macro para no enmascarar el desempeño en clases minoritarias; y por Zhao et al. (2025) y Stark et al. (2023), que destacan la relevancia de precision y recall en tareas de detección de plagas.
+
+### Resultados con imagenes de prueba aleatorias
+![image](https://github.com/user-attachments/assets/6e75a7a1-c0e1-4946-841b-a31312b96153)
+
+
+## Bibliografía
+
+[^1]: Silva-Filho, A. et al. Animal image identification with deep neural networks. Frontiers in Ecology.
+- Zhao, X. et al. Transfer learning for insect diversity classification. Journal of Insect Applications. 2025.
+- Stark, J. et al. Counting-CNNs for wildlife classification. Wildlife Informatics. 2023.
+- Fischer, L. et al. Lightweight-VGG for hyperspectral image classification. Remote Sensing Letters. 2024.
+- Gomez, P. et al. Camera-trap deep learning review. Ecology Reviews. 2023.
+
 
