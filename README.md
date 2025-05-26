@@ -131,26 +131,60 @@ Estas estrategias, combinadas, permiten que el clasificador reconozca hormigas e
 
 ### Arquitectura y configuración
 
-La red se inspira en el artículo de Silva-Filho et al. Frontiers in Ecology[1] y presenta:
+La red se inspira en el artículo ImageNet Classification with Deep Convolutional Networks[3] y presenta:
 ![image](https://github.com/user-attachments/assets/6d022151-f09f-48c0-b474-8bdad93c1db5)
 
-- Una capa de entrada que recibe imágenes RGB de 224×224 píxeles.
-- Cuatro bloques convolucionales con filtros de 3×3 y función ReLU para detectar patrones locales.
-- Reducción espacial mediante operaciones de max pooling entre bloques, promoviendo invarianza a traslaciones y compresión de la información.
-- Global Average Pooling al final de los mapas de características, condensando cada filtro en un único valor medio y evitando la proliferación de parámetros.
-- Una capa densa intermedia de 256 unidades con ReLU para combinar las características extraídas.
-- Capa de salida con softmax que entrega las probabilidades de pertenencia a siete clases.
+### Arquitectura detallada de cada capa
 
+- Capa de entrada  
+  Recibe imágenes en formato RGB de 224×224 píxeles. Su función es normalizar y organizar los datos de manera que todas las imágenes tengan el mismo tamaño y formato antes de ser procesadas por la red.
+
+- Primer bloque convolucional  
+  Aplica 64 filtros de tamaño 3×3 con activación ReLU. Cada filtro actúa como un detector de características sencillas (bordes, esquinas, cambios de intensidad) en distintas posiciones de la imagen. La función ReLU introduce no linealidad, descartando valores negativos y acelerando el entrenamiento.
+
+- Segundo bloque convolucional  
+  Utiliza 256 filtros de 3×3 con ReLU. Al profundizar la red, estos filtros capturan patrones más complejos, como texturas, contornos de antenas o formas de mandíbulas. El padding “same” garantiza que el tamaño espacial se mantenga constante, facilitando el apilamiento de capas.
+
+- Primera operación de max pooling  
+  Reduce la resolución espacial a la mitad seleccionando el valor máximo en cada región de 2×2 píxeles. Esto concentra la información más destacada, aporta invarianza a pequeñas traslaciones y reduce la cantidad de datos a procesar, agilizando la red.
+
+- Tercer bloque convolucional  
+  Otros 256 filtros de 3×3 con ReLU continúan enriqueciendo la representación, aprendiendo combinaciones de las características ya extraídas por capas anteriores.
+
+- Segunda operación de max pooling  
+  Repite la reducción de resolución, reforzando la invarianza y comprimiendo la información para evitar el exceso de parámetros y mitigar el sobreajuste.
+
+- Cuarto bloque convolucional  
+  Nuevamente 256 filtros de 3×3 con ReLU. Esta última capa convolucional extrae las representaciones de más alto nivel antes de la compactación global, integrando patrones morfológicos específicos de cada especie.
+
+- Tercera operación de max pooling  
+  Última reducción espacial antes del paso a agregación global de características.
+
+- Global Average Pooling  
+  Transforma cada uno de los 256 mapas de activación en un único valor medio. En lugar de aplanar toda la cuadrícula, promedia cada canal completo, lo que elimina miles de parámetros y actúa como regularizador, reduciendo el riesgo de sobreajuste.
+
+- Capa densa intermedia  
+  Toma el vector de 256 valores resultante del GAP y aprende combinaciones no lineales de esas características globales mediante 256 unidades con ReLU. Esta capa sintetiza la información en una representación compacta de alto nivel.
+
+- Capa de salida con softmax  
+  Convierte las activaciones finales en una distribución de probabilidad sobre las siete clases. La función softmax garantiza que la suma de probabilidades sea 1, permitiendo interpretar directamente la confianza de la predicción para cada especie.
 ### Selección de métricas
 
 Para evaluar el rendimiento se eligieron:
 
-- Accuracy: ofrece una visión general de aciertos sobre el total de predicciones.
-- Precisión: importante para minimizar falsos positivos; evita alarmas por especies no problemáticas.
-- Recall: crucial para reducir falsos negativos y no pasar por alto especies invasoras.
-- F1-score (macro): combina las dos anteriores, equilibrando sus ventajas en presencia de clases desbalanceadas.
+- **Accuracy**  
+  Mide la proporción de predicciones correctas sobre el total de muestras evaluadas. Refleja el comportamiento global del modelo, pero puede enmascarar errores en clases poco representadas.
 
-Estas métricas están respaldadas por Silva-Filho et al. (2022), quienes recomiendan F1-score macro para no enmascarar el desempeño en clases minoritarias; y por Zhao et al. (2025) y Stark et al. (2023), que destacan la relevancia de precision y recall en tareas de detección de plagas.
+- **Precisión**  
+  Calcula la fracción de verdaderos positivos entre todas las predicciones positivas. Indica qué tan confiables son las alertas del modelo, minimizando las falsas alarmas en especies inofensivas.
+
+- **Recall**  
+  Representa la proporción de verdaderos positivos identificados sobre el total de casos reales de esa clase. Es clave para no pasar por alto ejemplares de especies invasoras, reduciendo los falsos negativos.
+
+- **F1-score (macro)**  
+  Es la media de precisión y recall calculada de forma independiente para cada clase y luego promediada. Ofrece una visión equilibrada entre ambos errores, especialmente útil cuando las clases están desbalanceadas.  
+
+En tareas de identificación automática de especies, precisión mide la proporción de detecciones correctas entre todas las predicciones positivas, lo cual es clave para evitar falsas alarmas en estudios de fauna. Norouzzadeh et al. demuestran cómo un alto valor de precisión reduce el tiempo de validación manual en grandes colecciones de cámaras trampa [1]. Por su parte, el recall (sensibilidad) indica qué fracción de ejemplares reales es efectivamente detectada por el modelo; Das y Kumar lo emplean para garantizar que las especies menos frecuentes no queden inadvertidas, incluso a costa de aceptar más falsos positivos [2]. El F1-score combina ambas métricas mediante la media armónica, equilibrando sus ventajas, tal como lo formalizó van Rijsbergen para sistemas de recuperación de información y que hoy se aplica a clasificación de especies para no enmascarar el rendimiento en clases minoritarias.
 
 ### Compilación del modelo
 
@@ -285,14 +319,14 @@ En conjunto, los mayores conflictos se dan entre especies de tonalidades cálida
 
 - El uso de class weights ha equilibrado eficazmente el aprendizaje entre especies con soporte muy desigual, pero aún se observan confusiones entre clases de tonalidades similares (fire-ants vs leafcutter-ants, trap-jaw-ants vs argentine-ants). Para reducir estos errores, voy a introducir aumentos adicionales de contraste que obliguen al modelo a centrarse en rasgos morfológicos (mandíbulas, forma de la cabeza) por encima del color.
 
-- El modelo podría mejorar arquitectónisamente mediante el uso de VGG16 como base convolucional. Gracias a su mayor profundidad y a sus filtros optimizados en ImageNet, VGG16 extrae representaciones más detalladas y complejas, lo que puede ayudar a reducir el underfitting al captar mejor las sutilezas morfológicas de cada especie.
+- El modelo podría mejorar arquitectónisamente mediante el uso de VGG16 o ResNet como base convolucional. Gracias a su mayor profundidad y a sus filtros optimizados en ImageNet, VGG16 extrae representaciones más detalladas y complejas, lo que puede ayudar a reducir el underfitting al captar mejor las sutilezas morfológicas de cada especie.
 
 ## Bibliografía
+[1] M. S. Norouzzadeh, A. Nguyen, M. Kosmala, A. Swanson, M. Palmer, C. Packer, and J. Clune, “Automatically identifying, counting, and describing wild animals in camera-trap images with deep learning,” arXiv:1703.05830, 2017.
 
-[^1]: Silva-Filho, A. et al. Animal image identification with deep neural networks. Frontiers in Ecology.
-- Zhao, X. et al. Transfer learning for insect diversity classification. Journal of Insect Applications. 2025.
-- Stark, J. et al. Counting-CNNs for wildlife classification. Wildlife Informatics. 2023.
-- Fischer, L. et al. Lightweight-VGG for hyperspectral image classification. Remote Sensing Letters. 2024.
-- Gomez, P. et al. Camera-trap deep learning review. Ecology Reviews. 2023.
+[2] S. D. Das and A. Kumar, “Bird Species Classification using Transfer Learning with Multistage Training,” arXiv:1810.04250, 2018.
 
+[3] A. Krizhevsky, I. Sutskever, and G. E. Hinton, “ImageNet Classification with Deep Convolutional Neural Networks,” in *Proc. 25th Int. Conf. Neural Information Processing Systems (NIPS’12)*, Lake Tahoe, NV, USA, 2012, pp. 1097–1105, doi:10.1145/3065386.
+
+[4] R. Hadipour-Roknia, E. Askari Asli-Ardeh, A. Jahanbakhshi, I. Esmaili Paeen-Afrakotic, and S. Sabzi, “Intelligent detection of citrus fruit pests using machine vision system and convolutional neural network through transfer learning technique,” *Computers in Biology and Medicine*, vol. 155, p. 106611, Feb. 2023, doi:10.1016/j.compbiomed.2023.106611.
 
