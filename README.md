@@ -321,6 +321,103 @@ En conjunto, los mayores conflictos se dan entre especies de tonalidades cálida
 
 - El modelo podría mejorar arquitectónisamente mediante el uso de VGG16 o ResNet como base convolucional. Gracias a su mayor profundidad y a sus filtros optimizados en ImageNet, VGG16 extrae representaciones más detalladas y complejas, lo que puede ayudar a reducir el underfitting al captar mejor las sutilezas morfológicas de cada especie.
 
+## Segunda versión del modelo
+
+### Aumentos de datos revisados
+
+En esta iteración se intensificó la estrategia de *data-augmentation* con el fin de reducir la dependencia del modelo a variaciones cromáticas y obligarlo a fijarse en rasgos morfológicos finos (mandíbulas, forma del tórax, espinas):
+
+| Parámetro | Versión 1 | Versión 2 | Motivación |
+|-----------|-----------|-----------|------------|
+| `zoom_range` | (0.7, 1.3) | (0.7, 1.3) | Se mantiene: ya capturaba distintos tamaños en plano. |
+| `brightness_range` | (0.8, 1.2) | **(0.7, 1.3)** | Variación de iluminación más amplia para desacoplar el color del fondo. |
+| `preprocessing_function` (contraste) | factor 0.8-1.2 | **factor 0.7-1.3** | Contraste más agresivo; fuerza a discriminar contornos y textura de cabeza/patas. |
+| Resto de transformaciones | rotación 20°, *shifts* 15 %, `horizontal_flip`, `vertical_flip`, `fill_mode="wrap"` | Sin cambios | Ya aportaban buenos aumentos. |
+
+### Ajustes en la arquitectura convolucional
+
+| Componente | Versión 1 | Versión 2 | Razón del cambio |
+|------------|-----------|-----------|------------------|
+| Filtros de la primera capa | 64 filtros 3×3 | 96 filtros 3×3 | Incrementar capacidad para capturar micro-texturas desde el nivel más bajo. |
+| Número total de capas conv. | 4 | 5 | Profundidad adicional para capturar patrones morfológicas más complejas. |
+
+El entrenamiento y compilación se mantuvieron iguales en esta iteración.
+
+### Resultados
+#### Matriz de confusión
+![image](https://github.com/user-attachments/assets/ca7f6038-8a54-4e25-973a-4ffaeedbbc18)
+##### Lo que mejoró
+- black-crazy-ants, weaver-ants y yellow-crazy-ants ganan entre 2 y 12 puntos porcentuales de exactitud.  
+- Se reducen confusiones entre argentine con trap-jaw y fire con leafcutter.  
+- El nuevo ajuste de contraste parece ayudar a distinguir tonalidades oscuras (black-crazy) y la silueta esbelta de weaver-ants pero no los tonos cálidos.
+
+##### Lo que empeoró
+- leafcutter-ants cae de 86 % a 60 % de exactitud; ahora se confunden sobre todo con yellow-crazy y argentine-ants.  
+- argentine-ants y fire-ants también pierden precisión.  
+- Para las clases de tonos cálidos (argentine, fire, leafcutter) el modelo dejó de discriminar bien color y forma, quizá por los aumentos más agresivos de brillo/contraste.
+
+#### Entrenamiento
+![image](https://github.com/user-attachments/assets/964f9555-8e0d-42aa-9e5b-c5c8a3f3fd96)
+![image](https://github.com/user-attachments/assets/5439f658-ed3a-4afc-b953-cb1b333a94cc)
+
+- La exactitud de entrenamiento sube con constancia hasta 0.85-0.87.
+- Validación se mantiene entre 0.30 y 0.60 y fluctúa bastante.
+- Test termina cerca de 0.80-0.83, por debajo de entrenamiento y sin tendencia clara a mejorar después de la mitad del proceso.
+
+Por lo tanto las aumentaciones más agresivas no elevaron la precisión final y quizá alteraron rasgos útiles del color. También, añadir la capa extra y más filtros incrementó la capacidad de la red, pero esa complejidad no se tradujo en mejor desempeño fuera del entrenamiento. La brecha persistente entre entrenamiento y validación indica que el modelo capturó detalles presentes solo en las imágenes de entrenamiento.
+
+#### Análisis de métricas
+| Métrica global    | Modelo 1 | Modelo 2 | Cambio |
+|-------------------|---------:|---------:|-------:
+| Accuracy          | 0.85 | 0.79 | −0.06 |
+| Macro F1-score    | 0.85 | 0.79 | −0.06 |
+| Weighted F1-score | 0.85 | 0.79 | −0.06 |
+
+| Clase               | F1 M1 | F1 M2 | Δ F1 | Observación principal |
+|---------------------|------:|------:|-----:|-----------------------|
+| argentine-ants      | 0.89 | 0.82 | −0.07 | Menor precisión y recall. |
+| black-crazy-ants    | 0.88 | 0.83 | −0.05 | Recall sube (91 → 93) pero precisión baja. |
+| fire-ants           | 0.80 | 0.73 | −0.07 | Más confusiones con yellow-crazy y argentine. |
+| leafcutter-ants     | 0.83 | 0.74 | −0.09 | Fuerte caída de recall (86 → 60). |
+| trap-jaw-ants       | 0.82 | 0.86 | +0.04 | Única clase que mejora de forma consistente. |
+| weaver-ants         | 0.88 | 0.82 | −0.06 | Confusión adicional con yellow-crazy. |
+| yellow-crazy-ants   | 0.84 | 0.74 | −0.10 | Recall sube (78 → 91), precisión baja. |
+
+#### Conclusiones
+Modelo 1 mantiene mejor equilibrio general y modelo 2 solo gana en trap-jaw-ants y en la recuperación de black-crazy y yellow-crazy, pero sacrifica desempeño en el resto, sobre todo en leafcutter-ants, argentine-ants y fire-ants. La combinación de aumentaciones más agresivas y una capa convolucional adicional no aporta beneficio, conviene explorar fine-tuning con arquitecturas preentrenadas o ajustar los aumentos para no degradar clases sensibles.
+- Con la configuración original logró un F1 macro de 0.85, pero la versión “más profunda” con aumentos agresivos bajó a 0.79.  
+- Aumentar filtros y capas no tradujo en mejor generalización; algunas clases clave (leafcutter-ants, fire-ants) perdieron desempeño.  
+
+Esto sugiere que la arquitectura actual ya no extrae rasgos suficientes ni gestiona bien la variabilidad cromática y de fondo. Para avanzar conviene migrar a una arquitectura más compleja.
+
+## Tercera versión del modelo
+### Arquitectura y configuración
+| Bloque | Descripción | Propósito |
+|--------|-------------|-----------|
+| **Base convolucional** | EfficientNetV2B0 (`include_top=False`, pesos de ImageNet). Todas sus capas quedan entrenables (`trainable=True`). | Extrae representaciones ricas y compactas con menos parámetros y tiempos de entrenamiento menores que CNNs tradicionales. |
+| **GlobalAveragePooling2D** | Promedia cada mapa de activación de la base. | Reduce la salida a un vector y actúa como regularizador. |
+| **Densa (256 ReLU)** | 256 unidades totalmente conectadas. | Combina rasgos globales en una representación de alto nivel. |
+| **Dropout (0.2)** | Suprime aleatoriamente 20 % de activaciones. | Evita memorizar el set de entrenamiento. |
+| **Densa de salida (softmax)** | `num_classes = 7`. | Devuelve probabilidades por especie. |
+
+### Compilación  
+Se mantiene igual que en versiones anteriores: `optimizer="adam"`, `loss='categorical_crossentropy'`, `metrics=['accuracy']`.
+
+## ¿Qué es EfficientNetV2 y por qué usarlo aquí?
+
+* **EfficientNetV2** es una familia de CNNs diseñadas con búsqueda automática de arquitecturas enfocada en _velocidad de entrenamiento_ y _eficiencia de parámetros_. Integra bloques **Fused-MBConv** en etapas tempranas para acelerar las convoluciones y emplea **aprendizaje progresivo** (aumentar tamaño de imagen y regularización gradualmente) para lograr mejores resultados con menos épocas. (Pendiente agregar referencia)
+* En pruebas de ImageNet, EfficientNetV2 alcanza la misma o mayor precisión que redes más grandes (ResNet, NFNet) mientras entrena entre 3 × y 11 × más rápido y usa hasta 6.8 × menos parámetros. Esto lo hace atractivo cuando el tiempo de cómputo es limitado. (Pendiente agregar referencia)
+* Su capacidad para generalizar entre especies está demostrada en aplicaciones de fauna silvestre: un modelo de re-identificación entrenado sobre **49 especies** con un backbone EfficientNetV2 superó en 12.5 % de accuracy a modelos individuales por especie y mostró buen desempeño _zero-shot_ sobre especies no vistas. (Pendiente agregar referencia)
+
+### Ventajas concretas para el proyecto
+
+1. **Mejor relación parámetros/rendimiento**  
+   Se puede aumentar la profundidad efectiva sin disparar el riesgo de sobreajuste ni el tiempo por época.
+2. **Entrenamiento más veloz**  
+   Permite iterar con más combinaciones de aumentos y pesos de clase en menos tiempo.
+3. **Capacidad de transferir**  
+   Los filtros preentrenados en ImageNet ya detectan texturas y bordes finos que coinciden con rasgos morfológicos de las hormigas (mandíbulas, espinas, forma de la cabeza).
+
 ## Bibliografía
 [1] M. S. Norouzzadeh, A. Nguyen, M. Kosmala, A. Swanson, M. Palmer, C. Packer, and J. Clune, “Automatically identifying, counting, and describing wild animals in camera-trap images with deep learning,” arXiv:1703.05830, 2017.
 
