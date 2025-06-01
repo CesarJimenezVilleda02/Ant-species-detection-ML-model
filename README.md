@@ -246,6 +246,7 @@ Sucede cuando el modelo memoriza excesivamente el conjunto de entrenamiento, obt
 
 #### Graficas del proceso de entrenamiento
 Se generaron gráficas de evolución de accuracy y loss a lo largo de las épocas:
+
 ![image](https://github.com/user-attachments/assets/93a86f12-37fa-438c-9e3e-3dc53d313565)
 
 ![image](https://github.com/user-attachments/assets/09c17325-bfe4-4ce1-973f-45413780c129)
@@ -346,6 +347,7 @@ El entrenamiento y compilación se mantuvieron iguales en esta iteración.
 ### Resultados
 #### Matriz de confusión
 ![image](https://github.com/user-attachments/assets/ca7f6038-8a54-4e25-973a-4ffaeedbbc18)
+
 ##### Lo que mejoró
 - black-crazy-ants, weaver-ants y yellow-crazy-ants ganan entre 2 y 12 puntos porcentuales de exactitud.  
 - Se reducen confusiones entre argentine con trap-jaw y fire con leafcutter.  
@@ -439,11 +441,13 @@ Esto permite que la red aprenda primero las características más generales y lu
 
 #### Matriz de confusión
 ![image](https://github.com/user-attachments/assets/24c72c6e-51e7-47cc-a11b-806f9532a20f)
+
 La matriz de confusión muestra que el modelo se enfocó completamente hacia una sola clase. Todos los ejemplos, sin importar su clase real, fueron etiquetados como tal. Este patrón sugiere un fallo grave en el aprendizaje, probablemente causado por la falta de fine-tuning o una configuración incorrecta del entrenamiento. No hay señales de distinción entre clases, lo que vuelve este modelo inutilizable en su estado actual.
 
 #### Entrenamiento
 ![image](https://github.com/user-attachments/assets/38e0b50e-f454-4cd4-aeda-ff1d73e46764)
 ![image](https://github.com/user-attachments/assets/fd5f8d53-f108-4fdb-8b08-3eb98f8ad0e5)
+
 La gráfica muestra que el modelo alcanza rápidamente una alta precisión en el conjunto de entrenamiento, pero tanto la validación como la prueba permanecen en niveles muy bajos y erráticos durante todas las épocas. Esto indica que el modelo memorizó los ejemplos del entrenamiento sin aprender patrones útiles para generalizar, lo que confirma que hubo overfitting severo desde el inicio.
 
 #### Métricas
@@ -481,10 +485,12 @@ Para corregir esto se va a implementar un proceso de fine-tuning y ajustar el le
 Se exploraron varios refinamientos arquitectónicos y de entrenamiento para mejorar la generalización del modelo sin cambiar su base convolucional. Estas versiones sirvieron como etapa intermedia entre el entrenamiento sin ajustes y el ajuste fino completo.
 
 En la **versión 4**, se utilizó un learning rate pequeño 0.00001 y se redujo el dropout a 0.1, lo que permitió al modelo conservar detalles finos en la representación sin sobre-regularizar. Esta configuración logró un **accuracy en test del 89.09 %**, siendo hasta ese punto la mejor combinación observada. Su comportamiento fue más estable en validación y prueba en comparación con versiones anteriores que usaban dropout más alto o tasas de aprendizaje más agresivas.
+
 ![image](https://github.com/user-attachments/assets/19ed9f06-865c-4e34-bd75-46a87a9884ab)
 ![image](https://github.com/user-attachments/assets/8fa8f047-2713-4518-bd59-34500bf9632a)
 
 En la **versión 5**, se incrementó ligeramente el learning rate a 0.00005, manteniendo el resto de la arquitectura igual. El modelo mostró señales de sobreajuste leve y una caída en la precisión en test a **86.50 %**, lo cual sugiere que el valor anterior de tasa de aprendizaje era más adecuado para conservar el conocimiento útil de los pesos preentrenados. Aunque la diferencia no fue dramática, reforzó la conclusión de que un aprendizaje más lento es preferible para este tipo de datos.
+
 ![image](https://github.com/user-attachments/assets/37f8b0cd-1b98-4b0d-9f85-5e66257a074b)
 ![image](https://github.com/user-attachments/assets/0e39265d-fcd6-48a8-a6dd-1cc00205e3c8)
 
@@ -502,6 +508,7 @@ Se conservó la arquitectura general, pero se realizaron dos cambios clave:
 
 #### Matriz de confusión
 ![image](https://github.com/user-attachments/assets/bd939897-e595-4e01-920b-c418db8bc52a)
+
 Las confusiones son mínimas y están distribuidas de forma moderada. Las especies más afectadas por errores son *leafcutter-ants* y *fire-ants*, con algunos intercambios entre sí, lo cual es coherente con su semejanza en color y forma. El resto de las clases mantienen una separación clara, especialmente *argentine-ants* y *weaver-ants*, que fueron clasificadas con muy pocas equivocaciones.
 
 En general, esta matriz refleja que el modelo tiene una comprensión sólida de las clases cuando se enfrenta a datos del mismo dominio que el entrenamiento, y respalda la estabilidad del nuevo proceso de aprendizaje más lento.
@@ -630,6 +637,7 @@ En contraste, la versión final usa un dataset enriquecido y más variado, donde
 
 #### Evaluación usando datos externos
 ![image](https://github.com/user-attachments/assets/a7cdc1cc-0a1c-4d96-9745-f6907486b84a)
+
 A diferencia de versiones anteriores donde el modelo solo mostraba desempeño aceptable con las leafcutter-ants, en esta evaluación se observaron mejoras notables también en otras especies como trap-jaw-ants, black-crazy-ants y weaver-ants. Esto sugiere que el modelo ya no está simplemente reconociendo patrones contextuales muy específicos (como el fondo o tipo de nido), sino que comienza a aprender representaciones más generalizables de las propias hormigas.
 
 Esta mejora es atribuible directamente al nuevo dataset ampliado, que incorporó imágenes capturadas en una mayor variedad de entornos. Al tener acceso a datos visualmente más diversos, el modelo logró aprender a identificar las especies con base en características morfológicas y no tanto en el contexto en que fueron fotografiadas.
