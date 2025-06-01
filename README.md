@@ -403,20 +403,112 @@ Esto sugiere que la arquitectura actual ya no extrae rasgos suficientes ni gesti
 ### Compilación  
 Se mantiene igual que en versiones anteriores: `optimizer="adam"`, `loss='categorical_crossentropy'`, `metrics=['accuracy']`.
 
-## ¿Qué es EfficientNetV2 y por qué usarlo aquí?
+### ¿Qué es EfficientNetV2 y por qué usarlo aquí?
 
-* **EfficientNetV2** es una familia de CNNs diseñadas con búsqueda automática de arquitecturas enfocada en _velocidad de entrenamiento_ y _eficiencia de parámetros_. Integra bloques **Fused-MBConv** en etapas tempranas para acelerar las convoluciones y emplea **aprendizaje progresivo** (aumentar tamaño de imagen y regularización gradualmente) para lograr mejores resultados con menos épocas. (Pendiente agregar referencia)
-* En pruebas de ImageNet, EfficientNetV2 alcanza la misma o mayor precisión que redes más grandes (ResNet, NFNet) mientras entrena entre 3 × y 11 × más rápido y usa hasta 6.8 × menos parámetros. Esto lo hace atractivo cuando el tiempo de cómputo es limitado. (Pendiente agregar referencia)
-* Su capacidad para generalizar entre especies está demostrada en aplicaciones de fauna silvestre: un modelo de re-identificación entrenado sobre **49 especies** con un backbone EfficientNetV2 superó en 12.5 % de accuracy a modelos individuales por especie y mostró buen desempeño _zero-shot_ sobre especies no vistas. (Pendiente agregar referencia)
+* **EfficientNetV2** es una familia de redes convolucionales optimizadas para lograr la mejor precisión posible con el menor costo computacional. Fue diseñada usando búsqueda automática de arquitecturas (NAS) pero con un cambio clave: en lugar de solo buscar precisión, también se optimizó el **tiempo de entrenamiento**. Esto la hace especialmente útil cuando hay recursos limitados de cómputo o tiempo.
 
-### Ventajas concretas para el proyecto
+* En lugar de escalar redes arbitrariamente como agregar más capas o más filtros, EfficientNet propone el enfoque de **compound scaling**: una forma balanceada de aumentar profundidad, ancho y resolución de entrada simultáneamente.
 
-1. **Mejor relación parámetros/rendimiento**  
-   Se puede aumentar la profundidad efectiva sin disparar el riesgo de sobreajuste ni el tiempo por época.
-2. **Entrenamiento más veloz**  
-   Permite iterar con más combinaciones de aumentos y pesos de clase en menos tiempo.
-3. **Capacidad de transferir**  
-   Los filtros preentrenados en ImageNet ya detectan texturas y bordes finos que coinciden con rasgos morfológicos de las hormigas (mandíbulas, espinas, forma de la cabeza).
+En arquitecturas como la primer versión del modelo, al querer hacer una red más grande se suele modificar solo una dimensión: se le agregan más capas (profundidad), se amplían los canales de cada capa (ancho) o se sube el tamaño de las imágenes de entrada (resolución). Sin embargo, escalar solo uno de estos aspectos suele llevar a redes ineficientes: más lentas o con sobreajuste.
+
+Compound scaling parte de un modelo base (por ejemplo EfficientNetV2-B0) y aplica un único factor de escala (phi) que se reparte de forma coordinada entre las tres dimensiones usando constantes α, β y γ, que representan cuánto aumentar cada dimensión relativa a φ. Así, al aumentar φ, se obtiene una versión más grande de la red, pero sin romper el equilibrio entre capas, filtros y resolución. Esto permite construir modelos más precisos y eficientes en cómputo sin necesidad de rediseñar manualmente la arquitectura cada vez.
+
+* EfficientNetV2 reemplaza los primeros bloques MBConv (que usaban convoluciones separadas en pasos pequeños) por un tipo nuevo llamado Fused-MBConv.
+
+  El bloque MBConv original primero expandía los canales de la imagen con una convolución 1×1, luego aplicaba una convolución 3×3 por canal (depthwise), y después volvía a comprimir con otra 1×1. Era eficiente, pero tenía muchas operaciones pequeñas separadas. Fused-MBConv simplifica esto: usa directamente una convolución 3×3 normal que ya expande y procesa la imagen, seguida de una 1×1. Como lo hace todo junto, aprovecha mejor la GPU y entrena más rápido. Esta fusión funciona especialmente bien en las primeras capas, donde el tamaño de la imagen aún es grande y los canales son pocos. Por eso EfficientNetV2 usa Fused-MBConv solo al principio y después cambia a los bloques más complejos conforme se avanza en la red.
+
+* Además, introduce **aprendizaje progresivo**, una estrategia que arranca el entrenamiento con imágenes pequeñas y pocas regularizaciones (como mixup o dropout), y conforme el modelo mejora, incrementa la resolución de entrada y el nivel de regularización.  
+
+Esto permite que la red aprenda primero las características más generales y luego refine detalles finos, acelerando la convergencia.
+
+* En benchmarks sobre ImageNet, EfficientNetV2 logra:
+  - Misma o mejor precisión que modelos mucho más grandes (como ResNet-152 o NFNet).
+  - 3× a 11× menos tiempo de entrenamiento.
+  - 6.8× menos parámetros.
+
+* En aplicaciones reales de clasificación de fauna, como reidentificación de animales, EfficientNetV2 ha demostrado gran capacidad de generalización:
+  - En un estudio con 49 especies diferentes, un solo modelo con EfficientNetV2 como backbone superó en 12.5 % de accuracy promedio a entrenar un modelo por especie.
+  - Además, mostró buen rendimiento en escenarios **zero-shot**, donde debía clasificar especies no vistas durante el entrenamiento.
+
+* En el contexto de este proyecto, donde se busca distinguir sutiles diferencias morfológicas entre especies de hormigas (como el tipo de mandíbula, espinas, o forma del tórax), EfficientNetV2 es una elección adecuada por:
+  - Su habilidad para **capturar rasgos complejos y texturas finas** gracias a sus bloques Fused-MBConv y su profundidad controlada.
+  - Su rendimiento computacionalmente eficiente, ideal para entrenar múltiples versiones sin agotar recursos.
+  - Su robustez ante variaciones en los datos, como diferentes fondos o iluminación, cuando se combina con data augmentation adecuado.
+
+### Resultados
+
+#### Matriz de confusión
+![image](https://github.com/user-attachments/assets/24c72c6e-51e7-47cc-a11b-806f9532a20f)
+La matriz de confusión muestra que el modelo se enfocó completamente hacia una sola clase. Todos los ejemplos, sin importar su clase real, fueron etiquetados como tal. Este patrón sugiere un fallo grave en el aprendizaje, probablemente causado por la falta de fine-tuning o una configuración incorrecta del entrenamiento. No hay señales de distinción entre clases, lo que vuelve este modelo inutilizable en su estado actual.
+
+#### Entrenamiento
+![image](https://github.com/user-attachments/assets/38e0b50e-f454-4cd4-aeda-ff1d73e46764)
+![image](https://github.com/user-attachments/assets/fd5f8d53-f108-4fdb-8b08-3eb98f8ad0e5)
+La gráfica muestra que el modelo alcanza rápidamente una alta precisión en el conjunto de entrenamiento, pero tanto la validación como la prueba permanecen en niveles muy bajos y erráticos durante todas las épocas. Esto indica que el modelo memorizó los ejemplos del entrenamiento sin aprender patrones útiles para generalizar, lo que confirma que hubo overfitting severo desde el inicio.
+
+#### Métricas
+
+| Clase               | Precisión | Recall | F1-score | Soporte |
+|---------------------|-----------|--------|----------|---------|
+| argentine-ants      | 0.00      | 0.00   | 0.00     | 284     |
+| black-crazy-ants    | 0.08      | 1.00   | 0.15     | 104     |
+| fire-ants           | 0.00      | 0.00   | 0.00     | 230     |
+| leafcutter-ants     | 0.50      | 0.01   | 0.02     | 259     |
+| trap-jaw-ants       | 0.00      | 0.00   | 0.00     | 129     |
+| weaver-ants         | 0.00      | 0.00   | 0.00     | 152     |
+| yellow-crazy-ants   | 0.00      | 0.00   | 0.00     | 116     |
+
+| Métrica global      | Valor     |
+|---------------------|-----------|
+| Accuracy            | 0.08      |
+| Macro avg (F1)      | 0.02      |
+| Weighted avg (F1)   | 0.02      |
+
+Este modelo es inviable, pues no logra identificar correctamente ninguna clase excepto black-crazy-ants, y aun así lo hace por sobreajuste extremo. Las métricas obtenidas son mucho peores que las vistas en los modelos anteriores que tenían una arquitectura menos compleja. 
+
+#### Conclusión del entrenamiento sin fine-tuning
+La gráfica muestra que EfficientNetV2B0 aprendió muy rápido sobre el conjunto de entrenamiento, alcanzando una precisión superior al 85 % desde las primeras épocas. Esto indica que la red tiene una gran capacidad para capturar patrones complejos.
+
+Sin embargo, las curvas de validación y prueba permanecen muy bajas y con gran variación a lo largo de todo el entrenamiento, lo que señala un claro overfitting. El modelo memorizó los datos de entrenamiento pero no logró generalizar a nuevos ejemplos.
+
+Esto se debe a que se entrenó EfficientNet completamente desde el inicio sin aplicar fine-tuning. Al no ajustar el aprendizaje por etapas y usar un learning rate constante desde el principio, la red sobreajustó su representación a ejemplos específicos del set de entrenamiento, perdiendo la capacidad de aplicar lo aprendido a otras imágenes.
+
+Para corregir esto se va a implementar un proceso de fine-tuning y ajustar el learning rate para que el modelo retome los pesos preentrenados de manera más controlada y pueda adaptarse progresivamente a las características del dataset sin caer en la memorización.
+
+## Cuarta versión del modelo
+
+### Proceso de fine tuning
+
+### Resultados
+
+#### Matriz de confusión
+
+#### Entrenamiento
+
+#### Métricas
+
+#### Evaluación usando datos externos
+
+#### Conclusiones
+
+## Versión final del modelo
+
+### Aumento de los datos
+
+### Mejoras arquitectónicas
+
+### Resultados
+
+#### Matriz de confusión
+
+#### Entrenamiento
+
+#### Métricas
+
+#### Evaluación usando datos externos
+
+#### Conclusiones
+
 
 ## Bibliografía
 [1] M. S. Norouzzadeh, A. Nguyen, M. Kosmala, A. Swanson, M. Palmer, C. Packer, and J. Clune, “Automatically identifying, counting, and describing wild animals in camera-trap images with deep learning,” arXiv:1703.05830, 2017.
