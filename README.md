@@ -656,6 +656,6 @@ En conjunto, el proyecto cumple su objetivo: demostrar que con una selección ad
 
 [3] A. Krizhevsky, I. Sutskever, and G. E. Hinton, “ImageNet Classification with Deep Convolutional Neural Networks,” in *Proc. 25th Int. Conf. Neural Information Processing Systems (NIPS’12)*, Lake Tahoe, NV, USA, 2012, pp. 1097–1105, doi:10.1145/3065386.
 
-[4] M. Tan and Q. V. Le, "EfficientNetV2: Smaller Models and Faster Training," *Proceedings of the 38th International Conference on Machine Learning*, PMLR 139, 2021. [Online]. Available: https://github.com/google/automl/tree/master/efficientnetv2
+[4] M. Tan and Q. V. Le, "EfficientNetV2: Smaller Models and Faster Training," *Proceedings of the 38th International Conference on Machine Learning*, PMLR 139, 2021.
 
 [5] L. Otarashvili, T. Subramanian, J. Holmberg, J. J. Levenson, and C. V. Stewart, “Multispecies Animal Re-ID Using a Large Community-Curated Dataset,” arXiv:2401.00000 [cs.CV], 2024.
