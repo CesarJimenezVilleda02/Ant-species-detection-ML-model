@@ -56,7 +56,7 @@ Se llevó a cabo una limpieza exhaustiva del dataset original, eliminando imáge
 
 Dado que la clase "trap-jaw-ants" contaba con muy pocas muestras inicialmente, se incorporaron más imágenes adicionales para mejorar su representación. 
 
-Se añadió una nueva clase: **leafcutter-ants**, debido a su relevancia como plaga en cultivos de la región de Huichapan, Hidalgo. Las imágenes fueron obtenidas manualmente utilizando la herramienta ShareX para capturar frames de diversos videos en YouTube que mostraban estas hormigas en diferentes contextos (cautiverio, nidos, campo abierto). También se recolectaron imágenes desde la plataforma especializada AntWiki.
+Se añadió una nueva clase: **leafcutter-ants**, debido a su relevancia como plaga en cultivos de la región de Huichapan, Hidalgo. Las imágenes fueron obtenidas manualmente mediante web scraping y utilizando la herramienta ShareX para capturar frames de diversos videos en YouTube que mostraban estas hormigas en diferentes contextos (cautiverio, nidos, campo abierto). También se recolectaron imágenes desde la plataforma especializada AntWiki.
 
 ### Distribución final de los datos:
 **TRAIN — 5118 imágenes**
@@ -475,40 +475,171 @@ Esto se debe a que se entrenó EfficientNet completamente desde el inicio sin ap
 
 Para corregir esto se va a implementar un proceso de fine-tuning y ajustar el learning rate para que el modelo retome los pesos preentrenados de manera más controlada y pueda adaptarse progresivamente a las características del dataset sin caer en la memorización.
 
-## Cuarta versión del modelo
+## Refinamiento del modelo
 
-### Proceso de fine tuning
+### Experimentacion
+Se exploraron varios refinamientos arquitectónicos y de entrenamiento para mejorar la generalización del modelo sin cambiar su base convolucional. Estas versiones sirvieron como etapa intermedia entre el entrenamiento sin ajustes y el ajuste fino completo.
+
+En la **versión 4**, se utilizó un learning rate pequeño 0.00001 y se redujo el dropout a 0.1, lo que permitió al modelo conservar detalles finos en la representación sin sobre-regularizar. Esta configuración logró un **accuracy en test del 89.09 %**, siendo hasta ese punto la mejor combinación observada. Su comportamiento fue más estable en validación y prueba en comparación con versiones anteriores que usaban dropout más alto o tasas de aprendizaje más agresivas.
+![image](https://github.com/user-attachments/assets/19ed9f06-865c-4e34-bd75-46a87a9884ab)
+![image](https://github.com/user-attachments/assets/8fa8f047-2713-4518-bd59-34500bf9632a)
+
+En la **versión 5**, se incrementó ligeramente el learning rate a 0.00005, manteniendo el resto de la arquitectura igual. El modelo mostró señales de sobreajuste leve y una caída en la precisión en test a **86.50 %**, lo cual sugiere que el valor anterior de tasa de aprendizaje era más adecuado para conservar el conocimiento útil de los pesos preentrenados. Aunque la diferencia no fue dramática, reforzó la conclusión de que un aprendizaje más lento es preferible para este tipo de datos.
+![image](https://github.com/user-attachments/assets/37f8b0cd-1b98-4b0d-9f85-5e66257a074b)
+![image](https://github.com/user-attachments/assets/0e39265d-fcd6-48a8-a6dd-1cc00205e3c8)
+
+
+### Fine tuning
+Para la sexta versión del modelo se mantuvo la misma base convolucional EfficientNetV2B0, ya que había demostrado una rápida capacidad de aprendizaje. Sin embargo, se ajustaron cuidadosamente los componentes finales del modelo para mejorar la generalización sin perder eficiencia.
+
+Se conservó la arquitectura general, pero se realizaron dos cambios clave:
+
+- Se utilizó un learning rate más bajo de 0.00002 en el optimizador Adam. Este valor fue seleccionado tras observar que tasas mayores causaban sobreajuste temprano y hacían que el modelo tuviera más dificultades para converger, mientras que esta configuración permitió una adaptación más gradual de los pesos preentrenados durante el fine tuning.
+  
+- Se redujo el valor de dropout de 0.2 a 0.1. En pruebas previas, valores altos como 0.2 ayudaban inicialmente, pero terminaban afectando la capacidad del modelo para capturar detalles sutiles entre especies morfológicamente similares. La reducción a 0.1 conservó cierta regularización sin apagar demasiadas neuronas útiles.
 
 ### Resultados
 
 #### Matriz de confusión
+![image](https://github.com/user-attachments/assets/bd939897-e595-4e01-920b-c418db8bc52a)
+Las confusiones son mínimas y están distribuidas de forma moderada. Las especies más afectadas por errores son *leafcutter-ants* y *fire-ants*, con algunos intercambios entre sí, lo cual es coherente con su semejanza en color y forma. El resto de las clases mantienen una separación clara, especialmente *argentine-ants* y *weaver-ants*, que fueron clasificadas con muy pocas equivocaciones.
+
+En general, esta matriz refleja que el modelo tiene una comprensión sólida de las clases cuando se enfrenta a datos del mismo dominio que el entrenamiento, y respalda la estabilidad del nuevo proceso de aprendizaje más lento.
 
 #### Entrenamiento
+![image](https://github.com/user-attachments/assets/c9b061b9-cf11-48db-aebd-6fee2bb250db)
+![image](https://github.com/user-attachments/assets/8b55595f-c782-4101-a190-541448c6bb50)
+
+La gráfica muestra una evolución consistente del aprendizaje con una fuerte alineación entre la curva de entrenamiento y la de prueba. Esta cercanía indica que los hiperparámetros empleados en esta versión incluyendo el learning rate y el esquema de regularización están muy cerca de ser óptimos. La validación, aunque más ruidosa, también presenta una tendencia ascendente, lo que confirma que el modelo generaliza bien y no está sobreajustando de forma significativa.
 
 #### Métricas
+| Clase               | Precision | Recall | F1-score | Soporte |
+|---------------------|-----------|--------|----------|---------|
+| argentine-ants      | 0.94      | 0.94   | 0.94     | 284     |
+| black-crazy-ants    | 0.96      | 0.96   | 0.96     | 104     |
+| fire-ants           | 0.90      | 0.90   | 0.90     | 230     |
+| leafcutter-ants     | 0.88      | 0.83   | 0.85     | 259     |
+| trap-jaw-ants       | 0.90      | 0.95   | 0.92     | 129     |
+| weaver-ants         | 0.92      | 0.94   | 0.93     | 152     |
+| yellow-crazy-ants   | 0.87      | 0.91   | 0.89     | 116     |
+|                     |           |        |          |         |
+| **Accuracy**        |           |        | 0.91     | 1274    |
+| **Macro avg**       | 0.91      | 0.92   | 0.91     | 1274    |
+| **Weighted avg**    | 0.91      | 0.91   | 0.91     | 1274    |
+
+La versión 6 del modelo presenta una mejora general en todos los indicadores clave en comparación con la versión 4. El accuracy global pasó de 89 % a 91 %, y se observa una mejora más homogénea entre clases.
+
+- **Estabilidad por clase**: Aunque la versión 4 mostró excelente rendimiento en clases específicas como *argentine-ants* (0.97 de precisión), esta precisión vino acompañada de un recall algo menor (0.90), lo cual indica una ligera pérdida de sensibilidad. En cambio, en la versión 6, esta clase mantiene un balance perfecto entre precisión y recall (ambos en 0.94).
+- **Mejor equilibrio general**: El macro promedio sube de 0.89 a 0.91, lo que refleja una mejora no solo en el promedio ponderado por tamaño de clase, sino también en el trato equitativo a clases pequeñas.
+- **Leafcutter-ants** y *fire-ants* tuvieron una ligera caída en precisión, pero mejoraron en recall y F1-score, lo cual sugiere un modelo menos sesgado hacia ciertas clases.
 
 #### Evaluación usando datos externos
+![image](https://github.com/user-attachments/assets/4fbabacf-e401-4b49-90b4-f72104a4c51e)
+
+Al evaluar con imágenes externas, el modelo fracasó en casi todas las clases excepto en leafcutter-ants, donde logró un desempeño aceptable. Esto indica una pobre generalización, lo cual contradice la alta precisión alcanzada durante el entrenamiento y validación. Este comportamiento sugiere que el modelo memorizó características superficiales del conjunto de entrenamiento.
+
+Las imágenes del dataset original fueron recolectadas principalmente a partir de capturas programadas de video incluyendo documentales y grabaciones de YouTube para todas las especies, excepto *leafcutter-ants*. Para esta clase se aplicó webscraping con dos niveles de profundidad, lo que generó una colección mucho más diversa de contextos visuales. Esta variedad permitió al modelo aprender más que simples correlaciones con el fondo o ambiente de origen.
 
 #### Conclusiones
+
+Los resultados indican que el modelo estaba aprendiendo patrones del entorno específico de cada especie, como iluminación, tipo de suelo o calidad de imagen, más que atributos visuales distintivos de las hormigas. En esencia, estaba clasificando escenas o hormigueros más que a las hormigas mismas. Esto explica su incapacidad para adaptarse a nuevos contextos visuales. La solución inmediata es ampliar el dataset incluyendo más imágenes variadas por especie, tomadas en distintos ambientes y condiciones de captura usando el mismo método que con las leafcutter ants, para fomentar un aprendizaje más robusto y centrado en las características reales de cada especie.
+
 
 ## Versión final del modelo
 
 ### Aumento de los datos
 
+Para mejorar la capacidad de generalización del modelo y evitar que aprendiera únicamente patrones de fondo o condiciones específicas de captura, se amplió significativamente el dataset de entrenamiento y prueba.
+
+En la versión original del conjunto de datos, algunas clases estaban subrepresentadas y la mayoría de las imágenes provenían de fuentes homogéneas, como capturas de video de YouTube. Esto provocaba que el modelo asociara incorrectamente las especies con su contexto visual, en lugar de con sus características morfológicas.
+
+En esta versión final, cada clase fue enriquecida con nuevas imágenes obtenidas mediante el mismo enfoque usado anteriormente para *leafcutter-ants*. Se utilizó ShareX para capturar frames representativos desde videos diversos, y se complementó con imágenes extraídas de fuentes especializadas como AntWiki. Esta estrategia permitió incorporar imágenes en distintas condiciones, aumentando la diversidad visual del dataset.
+
+#### Comparativa de distribución
+
+| Dataset | Clase                | Original | Final |
+|--------:|----------------------|---------:|------:|
+| TRAIN   | trap-jaw-ants        | 525      | 520   |
+|         | black-crazy-ants     | 417      | 710   |
+|         | leafcutter-ants      | 1039     | 1017  |
+|         | yellow-crazy-ants    | 468      | 753   |
+|         | argentine-ants       | 1136     | 1629  |
+|         | weaver-ants          | 612      | 935   |
+|         | fire-ants            | 921      | 1232  |
+|         | **TOTAL**            | **5118** | **6796** |
+
+| Dataset | Clase                | Original | Final |
+|--------:|----------------------|---------:|------:|
+| TEST    | trap-jaw-ants        | 131      | 129   |
+|         | black-crazy-ants     | 104      | 177   |
+|         | leafcutter-ants      | 259      | 254   |
+|         | yellow-crazy-ants    | 116      | 188   |
+|         | argentine-ants       | 284      | 407   |
+|         | weaver-ants          | 152      | 233   |
+|         | fire-ants            | 230      | 308   |
+|         | **TOTAL**            | **1276** | **1696** |
+
+Esta mejora en la distribución ayudó a reducir el sesgo por clase y mejoró la robustez del entrenamiento, haciendo al modelo menos dependiente de los contextos visuales específicos de cada especie.
+
 ### Mejoras arquitectónicas
+Para esta versión final, se hicieron dos ajustes clave en la arquitectura:
+
+- Se redujo ligeramente el *learning rate* a 0.000015, buscando una convergencia más estable y una menor propensión a sobreajustar, dado que el modelo ya estaba muy cerca de su límite de generalización.
+- Se incrementó la resolución de entrada de 224×224 a 255×255 píxeles, lo cual permite conservar mayor detalle morfológico en las imágenes y aprovechar mejor la capacidad de extracción de características de EfficientNetV2B0.
+
+Ambas decisiones se tomaron tras observar que el modelo anterior, aunque robusto, aún mostraba señales de memorizar patrones específicos del entrenamiento. Esta arquitectura busca un equilibrio más fino entre capacidad de aprendizaje y estabilidad en la generalización.
 
 ### Resultados
 
 #### Matriz de confusión
+![image](https://github.com/user-attachments/assets/3197253d-cf7f-4dde-9d7e-e83bcfa9bd37)
+
+La matriz de confusión muestra que el modelo logra un desempeño sólido en todas las clases, con un buen número de predicciones correctas en la diagonal principal. Las confusiones más frecuentes se presentan entre especies similares como *argentine-ants* y *fire-ants*, o entre *leafcutter-ants* y *weaver-ants*, lo cual es comprensible dado su parecido morfológico y tonalidades compartidas.
+
+A pesar de estas confusiones, los errores están distribuidos de forma moderada y no hay una clase dominante absorbente como en versiones anteriores. Esto confirma que el modelo ahora distingue de forma más robusta entre especies, incluso en presencia de rasgos visuales sutiles.
 
 #### Entrenamiento
+![image](https://github.com/user-attachments/assets/333ce279-e98c-40e4-b59a-7e4752b637fc)
+![image](https://github.com/user-attachments/assets/cb922029-97c8-4884-8353-e7244a594d2c)
+
+En esta versión final, el modelo se entrenó durante **80 épocas**, a diferencia de las 60 utilizadas en versiones anteriores. Esta extensión en el tiempo de entrenamiento permitió una convergencia más progresiva y estable, particularmente en la precisión de prueba, que se mantuvo por encima del 80 % en las últimas etapas.
+
+La curva de entrenamiento muestra que la precisión en el conjunto de entrenamiento continúa mejorando de forma constante hasta el final. Aunque la precisión en validación no alcanza los niveles de entrenamiento ni de prueba, también muestra una tendencia ascendente, aunque más ruidosa.
+
+Esto sugiere que el modelo aún no había alcanzado su punto de saturación, y con mayor capacidad de cómputo o más épocas podría haberse ajustado mejor. Sin embargo, también se observa que el conjunto de validación comienza a estabilizarse, lo cual indica que el modelo se está acercando a su límite de generalización con los datos disponibles. Es posible que un pequeño aumento en el número de épocas (hasta 100, por ejemplo hubiera ofrecido una mejora adicional.
 
 #### Métricas
+| Clase               | Precisión | Recall | F1-score | Soporte |
+|---------------------|-----------|--------|----------|---------|
+| argentine-ants      | 0.78      | 0.83   | 0.80     | 407     |
+| black-crazy-ants    | 0.79      | 0.80   | 0.80     | 177     |
+| fire-ants           | 0.82      | 0.72   | 0.77     | 308     |
+| leafcutter-ants     | 0.82      | 0.81   | 0.82     | 254     |
+| trap-jaw-ants       | 0.87      | 0.91   | 0.89     | 129     |
+| weaver-ants         | 0.83      | 0.88   | 0.85     | 233     |
+| yellow-crazy-ants   | 0.83      | 0.78   | 0.80     | 188     |
+| **Accuracy global** |           |        | **0.81** | 1696    |
+| Macro avg           | 0.82      | 0.82   | 0.82     | 1696    |
+| Weighted avg        | 0.81      | 0.81   | 0.81     | 1696    |
+
+Comparado con la primera versión del modelo, que alcanzó un 85% de accuracy sobre un conjunto de datos más pequeño y visualmente homogéneo, esta versión final muestra una ligera caída en las métricas generales. Sin embargo, este descenso es esperable, ya que ahora se evaluó sobre un conjunto ampliado y más diverso.
+
+El modelo inicial fue entrenado sobre imágenes obtenidas mayoritariamente desde videos específicos por especie, lo que introdujo un sesgo de contexto visual (ambiente, tipo de iluminación, fondos repetidos). Esto facilitó que el modelo memorizara el entorno en lugar de generalizar sobre las características morfológicas de las hormigas. 
+
+En contraste, la versión final usa un dataset enriquecido y más variado, donde las hormigas aparecen en diferentes condiciones, aumentando así el reto de generalización. La caída en métricas refleja precisamente que ahora se está evaluando una capacidad más robusta y realista del modelo.
 
 #### Evaluación usando datos externos
+![image](https://github.com/user-attachments/assets/a7cdc1cc-0a1c-4d96-9745-f6907486b84a)
+A diferencia de versiones anteriores donde el modelo solo mostraba desempeño aceptable con las leafcutter-ants, en esta evaluación se observaron mejoras notables también en otras especies como trap-jaw-ants, black-crazy-ants y weaver-ants. Esto sugiere que el modelo ya no está simplemente reconociendo patrones contextuales muy específicos (como el fondo o tipo de nido), sino que comienza a aprender representaciones más generalizables de las propias hormigas.
+
+Esta mejora es atribuible directamente al nuevo dataset ampliado, que incorporó imágenes capturadas en una mayor variedad de entornos. Al tener acceso a datos visualmente más diversos, el modelo logró aprender a identificar las especies con base en características morfológicas y no tanto en el contexto en que fueron fotografiadas.
 
 #### Conclusiones
+A través de un conjunto de mejoras progresivas en la arquitectura, el preprocesamiento y especialmente en la calidad y diversidad del dataset, se logró construir un clasificador de especies de hormigas con buena capacidad de generalización y desempeño robusto en escenarios realistas. El accuracy global de 81 % se obtuvo evaluando sobre un conjunto más amplio y exigente que versiones anteriores, lo que demuestra una mejora sustancial en la solidez del modelo. A diferencia de las primeras versiones que aprendían a identificar contextos visuales específicos, el modelo actual muestra un entendimiento más centrado en las características propias de las hormigas.
 
+La ampliación del dataset fue clave para romper la dependencia del modelo con los ambientes originales de las imágenes. Al incorporar más ejemplos por clase, extraídos de diferentes fuentes, se redujo el sesgo por fondo y se permitió que la red aprendiera a reconocer formas, estructuras y texturas relevantes de cada especie. En términos de arquitectura, el uso de EfficientNetV2B0 con ajustes finos de hiperparámetros como el learning rate y el tamaño de imagen ofreció una base eficiente y fácil de adaptar para agregar más clases de hormigas y diversificar las actuales. El entrenamiento extendido a 80 épocas mostró que el modelo seguía mejorando con el tiempo, indicando que aún existía potencial sin explotar.
+
+En conjunto, el proyecto cumple su objetivo: demostrar que con una selección adecuada de datos y una arquitectura bien afinada, es posible entrenar modelos capaces de identificar distintas especies de hormigas a partir de imágenes en condiciones variadas. El sistema final está lejos de ser perfecto, pero ofrece una base sólida para futuras mejoras, ya sea ampliando el número de especies o integrando métodos de atención para mejorar la localización de rasgos clave.
 
 ## Bibliografía
 [1] M. S. Norouzzadeh, A. Nguyen, M. Kosmala, A. Swanson, M. Palmer, C. Packer, and J. Clune, “Automatically identifying, counting, and describing wild animals in camera-trap images with deep learning,” arXiv:1703.05830, 2017.
