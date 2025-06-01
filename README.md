@@ -405,7 +405,7 @@ Se mantiene igual que en versiones anteriores: `optimizer="adam"`, `loss='catego
 
 ### ¿Qué es EfficientNetV2 y por qué usarlo aquí?
 
-* **EfficientNetV2** es una familia de redes convolucionales optimizadas para lograr la mejor precisión posible con el menor costo computacional. Fue diseñada usando búsqueda automática de arquitecturas (NAS) pero con un cambio clave: en lugar de solo buscar precisión, también se optimizó el **tiempo de entrenamiento**. Esto la hace especialmente útil cuando hay recursos limitados de cómputo o tiempo.
+* **EfficientNetV2** es una familia de redes convolucionales optimizadas para lograr la mejor precisión posible con el menor costo computacional. Fue diseñada usando búsqueda automática de arquitecturas (NAS) pero con un cambio clave: en lugar de solo buscar precisión, también se optimizó el **tiempo de entrenamiento**. Esto la hace especialmente útil cuando hay recursos limitados de cómputo o tiempo [4].
 
 * En lugar de escalar redes arbitrariamente como agregar más capas o más filtros, EfficientNet propone el enfoque de **compound scaling**: una forma balanceada de aumentar profundidad, ancho y resolución de entrada simultáneamente.
 
@@ -423,17 +423,17 @@ Esto permite que la red aprenda primero las características más generales y lu
 
 * En benchmarks sobre ImageNet, EfficientNetV2 logra:
   - Misma o mejor precisión que modelos mucho más grandes (como ResNet-152 o NFNet).
-  - 3× a 11× menos tiempo de entrenamiento.
-  - 6.8× menos parámetros.
+  - 5× a 11× menos tiempo de entrenamiento.
+  - 6.8× menos parámetros [4].
 
 * En aplicaciones reales de clasificación de fauna, como reidentificación de animales, EfficientNetV2 ha demostrado gran capacidad de generalización:
-  - En un estudio con 49 especies diferentes, un solo modelo con EfficientNetV2 como backbone superó en 12.5 % de accuracy promedio a entrenar un modelo por especie.
-  - Además, mostró buen rendimiento en escenarios **zero-shot**, donde debía clasificar especies no vistas durante el entrenamiento.
+  - En un estudio con 49 especies diferentes, un solo modelo con EfficientNetV2 como backbone superó en 12.5 % de accuracy promedio a entrenar un modelo por especie [5].
+  - Además, mostró buen rendimiento en escenarios **zero-shot**, donde debía clasificar especies no vistas durante el entrenamiento [5].
 
 * En el contexto de este proyecto, donde se busca distinguir sutiles diferencias morfológicas entre especies de hormigas (como el tipo de mandíbula, espinas, o forma del tórax), EfficientNetV2 es una elección adecuada por:
   - Su habilidad para **capturar rasgos complejos y texturas finas** gracias a sus bloques Fused-MBConv y su profundidad controlada.
   - Su rendimiento computacionalmente eficiente, ideal para entrenar múltiples versiones sin agotar recursos.
-  - Su robustez ante variaciones en los datos, como diferentes fondos o iluminación, cuando se combina con data augmentation adecuado.
+  - Su robustez ante variaciones en los datos, como diferentes fondos o iluminación, cuando se combina con data augmentation adecuado [4].
 
 ### Resultados
 
@@ -585,7 +585,7 @@ Esta mejora en la distribución ayudó a reducir el sesgo por clase y mejoró la
 Para esta versión final, se hicieron dos ajustes clave en la arquitectura:
 
 - Se redujo ligeramente el *learning rate* a 0.000015, buscando una convergencia más estable y una menor propensión a sobreajustar, dado que el modelo ya estaba muy cerca de su límite de generalización.
-- Se incrementó la resolución de entrada de 224×224 a 255×255 píxeles, lo cual permite conservar mayor detalle morfológico en las imágenes y aprovechar mejor la capacidad de extracción de características de EfficientNetV2B0.
+- Se incrementó la resolución de entrada de 224×224 a 255×255 píxeles, lo cual permite conservar mayor detalle morfológico en las imágenes y aprovechar mejor la capacidad de extracción de características de EfficientNetV2B0 [5].
 
 Ambas decisiones se tomaron tras observar que el modelo anterior, aunque robusto, aún mostraba señales de memorizar patrones específicos del entrenamiento. Esta arquitectura busca un equilibrio más fino entre capacidad de aprendizaje y estabilidad en la generalización.
 
@@ -648,5 +648,6 @@ En conjunto, el proyecto cumple su objetivo: demostrar que con una selección ad
 
 [3] A. Krizhevsky, I. Sutskever, and G. E. Hinton, “ImageNet Classification with Deep Convolutional Neural Networks,” in *Proc. 25th Int. Conf. Neural Information Processing Systems (NIPS’12)*, Lake Tahoe, NV, USA, 2012, pp. 1097–1105, doi:10.1145/3065386.
 
-[4] R. Hadipour-Roknia, E. Askari Asli-Ardeh, A. Jahanbakhshi, I. Esmaili Paeen-Afrakotic, and S. Sabzi, “Intelligent detection of citrus fruit pests using machine vision system and convolutional neural network through transfer learning technique,” *Computers in Biology and Medicine*, vol. 155, p. 106611, Feb. 2023, doi:10.1016/j.compbiomed.2023.106611.
+[4] M. Tan and Q. V. Le, "EfficientNetV2: Smaller Models and Faster Training," *Proceedings of the 38th International Conference on Machine Learning*, PMLR 139, 2021. [Online]. Available: https://github.com/google/automl/tree/master/efficientnetv2
 
+[5] L. Otarashvili, T. Subramanian, J. Holmberg, J. J. Levenson, and C. V. Stewart, “Multispecies Animal Re-ID Using a Large Community-Curated Dataset,” arXiv:2401.00000 [cs.CV], 2024.
