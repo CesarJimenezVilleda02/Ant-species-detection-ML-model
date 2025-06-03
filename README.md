@@ -216,7 +216,7 @@ Cada paso procesa un lote de 16 imágenes. Con 100 pasos, el modelo ve 1 600 im�
 Tras cada época, se evalua el rendimiento en 25 lotes del conjunto de validación. Esto provee una medida confiable de generalización sin retrasar el entrenamiento.
 
 - **Pesos de clase**  
-Se asigna un peso mayor a las clases con menos muestras, de modo que sus errores penalicen más la pérdida total. Así se evita que especies poco representadas queden “silenciadas” durante el aprendizaje.
+Se asigna un peso mayor a las clases con menos muestras, de modo que sus errores penalicen más la pérdida total. Así se evita que especies poco representadas sean ignoradas durante el aprendizaje.
 
 ### Análisis de resultados
 
@@ -253,8 +253,8 @@ Se generaron gráficas de evolución de accuracy y loss a lo largo de las época
 
 #### Análisis de las curvas de entrenamiento
 
-- La precisión de entrenamiento (azul) y de prueba (verde) crecen de forma pareja hasta rondar 0.85, lo que indica que el modelo ajusta bien esos datos.  
-- La precisión de validación (naranja) se muestra muy errática, con subidas y bajadas bruscas. Esto se debe a que solo se evalúa una porción del set de validación en cada época, no la totalidad, por lo que las métricas varían según qué lotes toquen en ese paso.
+- La precisión de entrenamiento  y de prueba crecen de forma pareja hasta rondar 0.85, lo que indica que el modelo ajusta bien esos datos.  
+- La precisión de validación se muestra muy errática, con subidas y bajadas bruscas. Esto se debe a que solo se evalúa una porción del set de validación en cada época, no la totalidad, por lo que las métricas varían según qué lotes toquen en ese paso.
 - La precisión de prueba supera ligeramente a la de entrenamiento en algunos tramos. Este patrón sugiere un leve underfitting respecto al test completo, quizá porque la arquitectura es todavía demasiado simple para capturar todas las variaciones.  
 - En cuanto a la pérdida, tanto entrenamiento como prueba descienden de forma suave.
 
@@ -378,12 +378,12 @@ Por lo tanto las aumentaciones más agresivas no elevaron la precisión final y 
 | Clase               | F1 M1 | F1 M2 | Δ F1 | Observación principal |
 |---------------------|------:|------:|-----:|-----------------------|
 | argentine-ants      | 0.89 | 0.82 | −0.07 | Menor precisión y recall. |
-| black-crazy-ants    | 0.88 | 0.83 | −0.05 | Recall sube (91 → 93) pero precisión baja. |
+| black-crazy-ants    | 0.88 | 0.83 | −0.05 | Recall sube (91 -> 93) pero precisión baja. |
 | fire-ants           | 0.80 | 0.73 | −0.07 | Más confusiones con yellow-crazy y argentine. |
-| leafcutter-ants     | 0.83 | 0.74 | −0.09 | Fuerte caída de recall (86 → 60). |
+| leafcutter-ants     | 0.83 | 0.74 | −0.09 | Fuerte caída de recall (86 -> 60). |
 | trap-jaw-ants       | 0.82 | 0.86 | +0.04 | Única clase que mejora de forma consistente. |
 | weaver-ants         | 0.88 | 0.82 | −0.06 | Confusión adicional con yellow-crazy. |
-| yellow-crazy-ants   | 0.84 | 0.74 | −0.10 | Recall sube (78 → 91), precisión baja. |
+| yellow-crazy-ants   | 0.84 | 0.74 | −0.10 | Recall sube (78 -> 91), precisión baja. |
 
 #### Conclusiones
 Modelo 1 mantiene mejor equilibrio general y modelo 2 solo gana en trap-jaw-ants y en la recuperación de black-crazy y yellow-crazy, pero sacrifica desempeño en el resto, sobre todo en leafcutter-ants, argentine-ants y fire-ants. La combinación de aumentaciones más agresivas y una capa convolucional adicional no aporta beneficio, conviene explorar fine-tuning con arquitecturas preentrenadas o ajustar los aumentos para no degradar clases sensibles.
@@ -481,7 +481,7 @@ Para corregir esto se va a implementar un proceso de fine-tuning y ajustar el le
 
 ## Refinamiento del modelo
 
-### Experimentacion
+### Experimentación
 Se exploraron varios refinamientos arquitectónicos y de entrenamiento para mejorar la generalización del modelo sin cambiar su base convolucional. Estas versiones sirvieron como etapa intermedia entre el entrenamiento sin ajustes y el ajuste fino completo.
 
 En la **versión 4**, se utilizó un learning rate pequeño 0.00001 y se redujo el dropout a 0.1, lo que permitió al modelo conservar detalles finos en la representación sin sobre-regularizar. Esta configuración logró un **accuracy en test del 89.09 %**, siendo hasta ese punto la mejor combinación observada. Su comportamiento fue más estable en validación y prueba en comparación con versiones anteriores que usaban dropout más alto o tasas de aprendizaje más agresivas.
